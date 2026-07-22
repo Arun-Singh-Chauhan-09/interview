@@ -1,0 +1,23 @@
+grafana:
+  adminPassword: admin
+  service:
+    type: NodePort
+    nodePort: 30030
+  defaultDashboardsEnabled: true
+
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    retention: 2h
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+
+alertmanager:
+  enabled: false
+
+nodeExporter:
+  enabled: true
+kubeStateMetrics:
+  enabled: true
