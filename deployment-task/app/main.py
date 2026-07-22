@@ -1,6 +1,6 @@
 import os
 import socket
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 VERSION = os.getenv("APP_VERSION", "dev")
 request_count = 0
@@ -46,4 +46,4 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     print(f"starting version={VERSION} on :8080", flush=True)
-    HTTPServer(("", 8080), Handler).serve_forever()
+    ThreadingHTTPServer(("", 8080), Handler).serve_forever()
