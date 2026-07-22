@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 CLUSTER="cardmarket-interview"
-IMAGE="ghcr.io/arun-singh-chauhan-09/cardmarket-demo:0.1.0"
+IMAGE="ghcr.io/arun-singh-chauhan-09/interview-demo:0.1.0"
 
 echo "==> 1/6 Building image"
 docker build -t "$IMAGE" --build-arg VERSION=0.1.0 ./app
