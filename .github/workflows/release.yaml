@@ -37,8 +37,8 @@ jobs:
           build-args: VERSION=${{ steps.v.outputs.version }}
           push: true
           tags: |
-            ghcr.io/${{ steps.owner.outputs.name }}/cardmarket-demo:${{ steps.v.outputs.version }}
-            ghcr.io/${{ steps.owner.outputs.name }}/cardmarket-demo:latest
+            ghcr.io/${{ steps.owner.outputs.name }}/interview-demo:${{ steps.v.outputs.version }}
+            ghcr.io/${{ steps.owner.outputs.name }}/interview-demo:latest
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
