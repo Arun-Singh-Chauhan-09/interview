@@ -37,7 +37,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "text/plain")
         self.end_headers()
-        body = f"cardmarket demo app\nversion: {VERSION}\npod: {socket.gethostname()}\n"
+        body = f"cardmarket demo app — GitOps deploy\nversion: {VERSION}\npod: {socket.gethostname()}\n"
         self.wfile.write(body.encode())
 
     def log_message(self, *args):
