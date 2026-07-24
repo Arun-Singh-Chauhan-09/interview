@@ -9,7 +9,7 @@ spec:
   source:
     repoURL: https://github.com/Arun-Singh-Chauhan-09/interview
     targetRevision: main
-    path: k8s
+    path: deployment-task/k8s
   destination:
     server: https://kubernetes.default.svc
     namespace: default
