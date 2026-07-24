@@ -6,11 +6,11 @@ CLUSTER="cardmarket-interview"
 # ✅ Use :latest to get the newest version
 IMAGE="ghcr.io/arun-singh-chauhan-09/interview-demo:latest"
 
-echo "==> 1/6 Pulling latest image from GHCR"
-docker pull "$IMAGE"
+# echo "==> 1/6 Pulling latest image from GHCR"
+# docker pull "$IMAGE"
 
-echo "==> 2/6 Loading image into kind"
-kind load docker-image "$IMAGE" --name "$CLUSTER"
+# echo "==> 2/6 Loading image "
+# kind load docker-image "$IMAGE" --name "$CLUSTER"into kind
 
 echo "==> 3/6 Deploying app"
 kubectl apply -f k8s/deployment.yaml
