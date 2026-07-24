@@ -3,10 +3,11 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 CLUSTER="cardmarket-interview"
-IMAGE="ghcr.io/arun-singh-chauhan-09/interview-demo:0.1.0"
+# ✅ Use :latest to get the newest version
+IMAGE="ghcr.io/arun-singh-chauhan-09/interview-demo:latest"
 
-echo "==> 1/6 Building image"
-docker build -t "$IMAGE" --build-arg VERSION=0.1.0 ./app
+echo "==> 1/6 Pulling latest image from GHCR"
+docker pull "$IMAGE"
 
 echo "==> 2/6 Loading image into kind"
 kind load docker-image "$IMAGE" --name "$CLUSTER"
@@ -37,7 +38,7 @@ kubectl -n argocd rollout status deployment/argocd-server --timeout=300s
 kubectl apply -f argocd/application.yaml
 
 echo
-echo "Done. Verify with:"
+echo "✅ Done! Verify with:"
 echo "  curl localhost:8080"
 echo "  kubectl -n argocd get application demo-app -o wide"
 echo "  Grafana:  http://localhost:3000  (admin/admin)"
