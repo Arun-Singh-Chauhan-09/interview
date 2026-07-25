@@ -15,7 +15,27 @@ prometheus:
         memory: 256Mi
 
 alertmanager:
-  enabled: false
+  enabled: true
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+  config:
+    global:
+      resolve_timeout: 2m
+    route:
+      receiver: 'default'
+      group_by: ['alertname', 'job']
+      group_wait: 10s
+      group_interval: 30s
+      repeat_interval: 5m
+      routes:
+        - matchers: [ 'severity = "critical"' ]
+          receiver: 'critical'
+    receivers:
+      - name: 'default'
+      - name: 'critical'
 
 nodeExporter:
   enabled: true

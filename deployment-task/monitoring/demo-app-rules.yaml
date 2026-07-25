@@ -1,0 +1,27 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: demo-app-rules
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: demo-app.rules
+      rules:
+        - alert: DemoAppReplicaDown
+          expr: up{job="demo-app"} == 0
+          for: 30s
+          labels:
+            severity: warning
+          annotations:
+            summary: "demo-app replica {{ $labels.pod }} is down"
+            description: "Pod {{ $labels.pod }} unreachable for >30s."
+        - alert: DemoAppAllDown
+          expr: absent(up{job="demo-app"} == 1)
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: "demo-app has no healthy pods"
+            description: "No demo-app replica has been up for >30s."
