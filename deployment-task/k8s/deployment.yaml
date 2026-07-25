@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: demo-app
-          image: ghcr.io/arun-singh-chauhan-09/interview-demo:latest
+          image: ghcr.io/arun-singh-chauhan-09/interview-demo:0.1.3
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
