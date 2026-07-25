@@ -41,7 +41,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body.encode())
 
     def log_message(self, format, *args):
-        print(f"{self.address_string()} - {self.command} {self.path}", flush=True)
+        if self.path not in ("/healthz", "/metrics"):
+            print(f"{self.address_string()} - {self.command} {self.path}", flush=True)
 
 
 if __name__ == "__main__":
