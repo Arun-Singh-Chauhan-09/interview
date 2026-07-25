@@ -40,8 +40,8 @@ class Handler(BaseHTTPRequestHandler):
         body = f"cardmarket demo app — GitOps deploy\nversion: {VERSION}\npod: {socket.gethostname()}\n"
         self.wfile.write(body.encode())
 
-    def log_message(self, *args):
-        pass
+    def log_message(self, format, *args):
+        print(f"{self.address_string()} - {self.command} {self.path}", flush=True)
 
 
 if __name__ == "__main__":
