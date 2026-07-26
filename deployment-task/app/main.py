@@ -45,6 +45,8 @@ class Handler(BaseHTTPRequestHandler):
             print(f"{self.address_string()} - {self.command} {self.path}", flush=True)
 
 
+
+
 if __name__ == "__main__":
     print(f"starting version={VERSION} on :8080", flush=True)
     ThreadingHTTPServer(("", 8080), Handler).serve_forever()
