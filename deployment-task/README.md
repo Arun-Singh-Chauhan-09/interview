@@ -54,3 +54,134 @@ kind cluster via GitOps, and monitored with Prometheus + Grafana.
 - Monitoring added as an extra: it's how I'd actually run this in production.
 
 Remember: work in your own fork, do NOT open a PR against the source repo.
+
+
+## Observability
+
+This project runs a full three-pillar observability stack on a local `kind`
+cluster, provisioned declaratively and reproducible with a single script.
+
+### Architecture
+
+```mermaid
+graph TB
+    subgraph cluster["kind cluster"]
+        subgraph default["namespace: default"]
+            app["demo-app<br/>FastAPI, 2 replicas<br/>/metrics + stdout logs"]
+            svc["Service: demo-app"]
+        end
+        subgraph argons["namespace: argocd"]
+            argo["ArgoCD<br/>GitOps auto-sync + self-heal"]
+        end
+        subgraph mon["namespace: monitoring"]
+            prom["Prometheus<br/>scrapes /metrics"]
+            am["Alertmanager<br/>routes by severity"]
+            graf["Grafana<br/>Prometheus + Loki datasources"]
+            loki["Loki<br/>log store"]
+            pt["Promtail<br/>tails /var/log/pods"]
+            rules["PrometheusRule<br/>DemoAppReplicaDown / AllDown"]
+        end
+    end
+    gitrepo["Git repo (app manifests)"]
+
+    gitrepo -->|desired state| argo
+    argo -->|deploys / reconciles| app
+    svc --> app
+    prom -->|scrape :8080/metrics| svc
+    prom --> rules
+    rules -->|fires| am
+    pt -.->|reads stdout| app
+    pt -->|ships logs| loki
+    graf -->|PromQL| prom
+    graf -->|LogQL| loki
+```
+
+*(Full diagram source in [`architecture.mmd`](deployment-task/architecture.mmd).)*
+
+### The three pillars
+
+| Pillar | Component | Role |
+| --- | --- | --- |
+| **Metrics** | Prometheus + Grafana | Scrapes the app's `/metrics` endpoint; visualised in Grafana |
+| **Alerting** | Alertmanager + PrometheusRule | Fires on pod-down, routes by severity |
+| **Logs** | Loki + Promtail | Promtail tails pod stdout from the node, ships to Loki; queried in Grafana |
+
+All three are installed by `scripts/setup.sh` and configured via version-controlled
+Helm values (`monitoring/values.yaml`, `monitoring/loki-values.yaml`) — no manual
+UI steps required.
+
+### Lifecycle
+
+```bash
+# 1. create the cluster (Terraform-managed kind)
+cd deployment-task/terraform && terraform apply
+
+# 2. deploy app + monitoring + alerting + logs + ArgoCD
+cd ../scripts && bash setup.sh
+
+# 3. tear everything down (stops forwards, destroys cluster)
+bash teardown.sh
+```
+
+`setup.sh` finishes by starting background port-forwards and printing every
+endpoint plus the ArgoCD admin password.
+
+### Endpoints
+
+| Service | URL | Notes |
+| --- | --- | --- |
+| App | http://localhost:8080 | `curl localhost:8080/metrics` |
+| Grafana | http://localhost:3000 | admin / admin |
+| Prometheus | http://localhost:9090/alerts | filter: `demo-app` |
+| Alertmanager | http://localhost:9093 | |
+| ArgoCD | https://localhost:8081 | admin / (password from setup output) |
+
+### Key queries
+
+**Metrics (Prometheus datasource):**
+```promql
+up{job="demo-app"}                                   # per-pod liveness
+sum(rate(app_requests_total{job="demo-app"}[5m]))    # request rate (req/s)
+sum(rate(app_requests_total{job="demo-app"}[5m])) by (pod)   # per-pod rate
+```
+
+**Logs (Loki datasource):**
+```logql
+{namespace="default", app="demo-app"}                # stream app logs
+sum(rate({app="demo-app"}[5m]))                       # request rate from log volume
+```
+
+### Alerting demo
+
+```bash
+# 1. pause GitOps self-heal (else ArgoCD reconciles the app back up)
+kubectl patch application demo-app -n argocd --type merge \
+  -p '{"spec":{"syncPolicy":{"automated":{"selfHeal":false}}}}'
+
+# 2. take the app down — watch localhost:9090/alerts go PENDING -> FIRING
+kubectl scale deploy/demo-app -n default --replicas=0
+
+# 3. observe the alert routed to the "critical" receiver in Alertmanager (:9093)
+
+# 4. recover + restore GitOps state
+kubectl scale deploy/demo-app -n default --replicas=2
+kubectl patch application demo-app -n argocd --type merge \
+  -p '{"spec":{"syncPolicy":{"automated":{"selfHeal":true}}}}'
+```
+
+The `for:` clause on each rule debounces transient blips (e.g. rolling restarts)
+so only sustained outages page.
+
+### Design notes
+
+- **App logs to stdout**; Promtail collects from the node's `/var/log/pods`. The
+  app never manages log files — the platform collects. This is the standard
+  cloud-native logging pattern.
+- **Counters are summed across pods and wrapped in `rate()`** — each replica holds
+  its own counter, and `rate()` handles counter resets on restart.
+- **Datasources are provisioned declaratively** via Helm values, with Prometheus
+  as the sole default (Loki `isDefault: false`) to avoid provisioning conflicts.
+- **Demo-scoped trade-offs**: Loki uses filesystem storage (no object store),
+  Prometheus retention is 2h, and resources are minimal. Production would use
+  object storage, longer retention, HA, and the current Loki + Alloy chart in
+  place of the deprecated `loki-stack`.

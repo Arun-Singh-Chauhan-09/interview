@@ -1,0 +1,47 @@
+graph TB
+    subgraph host["Developer host (WSL2 / kind)"]
+        dev["kubectl / browser<br/>port-forwards"]
+    end
+
+    subgraph tf["Terraform"]
+        kind["kind cluster<br/>1 control-plane + 1 worker"]
+    end
+
+    subgraph cluster["kind cluster"]
+        subgraph default["namespace: default"]
+            app["demo-app<br/>FastAPI, 2 replicas<br/>/metrics + stdout logs"]
+            svc["Service: demo-app"]
+        end
+
+        subgraph argons["namespace: argocd"]
+            argo["ArgoCD<br/>GitOps auto-sync + self-heal"]
+        end
+
+        subgraph mon["namespace: monitoring"]
+            prom["Prometheus<br/>scrapes /metrics"]
+            am["Alertmanager<br/>routes by severity"]
+            graf["Grafana<br/>datasources:<br/>Prometheus + Loki"]
+            loki["Loki<br/>log store"]
+            pt["Promtail<br/>DaemonSet<br/>tails /var/log/pods"]
+            rules["PrometheusRule<br/>DemoAppReplicaDown / AllDown"]
+        end
+    end
+
+    gitrepo["Git repo<br/>(app manifests)"]
+
+    dev -->|terraform apply| kind
+    kind --> cluster
+    argo -->|deploys / reconciles| app
+    gitrepo -->|desired state| argo
+    svc --> app
+    prom -->|scrape :8080/metrics| svc
+    prom --> rules
+    rules -->|fires| am
+    pt -->|ships logs| loki
+    pt -.->|reads stdout| app
+    graf -->|PromQL| prom
+    graf -->|LogQL| loki
+    dev -->|:3000| graf
+    dev -->|:9090| prom
+    dev -->|:9093| am
+    dev -->|:8081| argo
