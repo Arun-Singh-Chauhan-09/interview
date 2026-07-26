@@ -1,56 +1,24 @@
-# Review — `shell/script.sh`
+# Review — shell/script.sh
 
-## Summary
+The script should log a timestamped message to stdout. As written it fails: the
+redirect targets an undefined variable and word-splitting drops most of the message.
 
-The script intends to log a timestamped message to stdout. As written it does
-not work: the log function writes to an undefined variable, and most of the
-message is silently discarded. Four issues below, in severity order.
+## Bugs
 
-## Issues
+1. **Undefined variable.** `LOG_FILE` is defined but the write uses `$LOGFILE` —
+   a different, unset variable. Expands to empty → `>> ""` → ambiguous redirect.
 
-### 1. Undefined variable — the script's core bug
+2. **Single quotes block expansion.** `LOG_FILE='$STDOUT'` stores the literal
+   text `$STDOUT`, not `/dev/stdout`. Use double quotes.
 
-```bash
-LOG_FILE='$STDOUT'          # defines LOG_FILE
-echo "..." >> "$LOGFILE"    # writes to LOGFILE — different variable
-```
+3. **Unquoted argument splits.** `log_message $LOG_MESSAGE` passes each word
+   separately; `$1` gets only `is`, the rest is dropped. Fails silently — the
+   worst of the four. Quote it: `log_message "$LOG_MESSAGE"`.
 
-`LOG_FILE` and `LOGFILE` are not the same variable. `$LOGFILE` is never
-assigned, so it expands to an empty string and the redirect becomes
-`>> ""`, which fails with an ambiguous-redirect error.
+4. **No shebang / no error handling.** Missing `#!/usr/bin/env bash` and
+   `set -euo pipefail`, so the interpreter is ambiguous and failures pass unnoticed.
 
-**Fix:** use one consistent name.
-
-### 2. Single quotes prevent variable expansion
-
-```bash
-LOG_FILE='$STDOUT'
-```
-
-Single quotes are literal in bash, so `LOG_FILE` holds the seven characters
-`$STDOUT` rather than the value `/dev/stdout`. Even with issue 1 fixed, the
-script would try to append to a file literally named `$STDOUT`.
-
-**Fix:** double quotes — `LOG_FILE="$STDOUT"`.
-
-### 3. Unquoted argument causes word splitting
-
-```bash
-log_message $LOG_MESSAGE
-```
-
-Unquoted, bash splits the value on whitespace and passes each word as a
-separate argument. `$1` receives only `is`; the rest of the message is
-dropped. This fails silently, which makes it the most dangerous of the four.
-
-**Fix:** `log_message "$LOG_MESSAGE"`.
-
-### 4. Missing shebang and error handling
-
-The script has no `#!/usr/bin/env bash` line, so its interpreter depends on
-how it is invoked, and no `set -euo pipefail`, so failures pass unnoticed.
-
-## Corrected script
+## Corrected
 
 ```bash
 #!/usr/bin/env bash
@@ -61,13 +29,10 @@ LOG_FILE="$STDOUT"
 LOG_MESSAGE="is the date, should log to $STDOUT"
 
 log_message() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" > "$LOG_FILE"
 }
 
 log_message "$LOG_MESSAGE"
 ```
 
-## Note on `>>` vs `>`
-
-Appending to `/dev/stdout` works, but `>>` implies a file that accumulates.
-For a stream, `>` reads more clearly. Minor style point, not a bug.
+*Note: `>` reads more clearly than `>>` for a stream; minor style, not a bug.*
