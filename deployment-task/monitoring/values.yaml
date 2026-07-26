@@ -4,6 +4,7 @@ grafana:
     type: NodePort
     nodePort: 30030
   defaultDashboardsEnabled: true
+  
 
 prometheus:
   prometheusSpec:

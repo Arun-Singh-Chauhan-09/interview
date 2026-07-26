@@ -1,0 +1,11 @@
+grafana:
+  enabled: false
+prometheus:
+  enabled: false
+promtail:
+  enabled: true
+loki:
+  isDefault: false
+  url: http://loki.monitoring.svc.cluster.local:3100
+  persistence:
+    enabled: false

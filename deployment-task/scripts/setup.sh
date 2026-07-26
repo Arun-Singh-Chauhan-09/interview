@@ -33,6 +33,13 @@ kubectl apply -f k8s/servicemonitor.yaml
 echo "==> 6/7 Applying alert rules (PrometheusRule)"
 kubectl apply -f monitoring/demo-app-rules.yaml
 
+
+echo "==> 6.5/7 Installing Loki (logs)"
+helm repo add grafana https://grafana.github.io/helm-charts >/dev/null 2>&1 || true
+helm repo update >/dev/null
+helm upgrade --install loki grafana/loki-stack \
+  -n monitoring -f monitoring/loki-values.yaml
+
 echo "==> 7/7 Installing ArgoCD (GitOps)"
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply --server-side -n argocd \
