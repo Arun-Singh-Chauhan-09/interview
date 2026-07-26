@@ -1,75 +1,27 @@
-# Review — `k8s/nginx.yaml`
+# Review — k8s/nginx.yaml
 
-## Summary
+An nginx Deployment + Service. As written neither works: the Deployment's selector
+doesn't match its pod template, and the Service has no selector so it routes nowhere.
 
-The manifest defines an nginx Deployment and a Service. As written, neither
-works: the Deployment's selector does not match its own pod template, and the
-Service cannot route traffic to the pods even if they were running. Findings
-below, in severity order.
+## Bugs
 
-## Issues
+1. **Selector ≠ template labels — Deployment is invalid.** `matchLabels.app: myNginx`
+   vs template label `app: myNgnx` (missing `i`). The API server rejects it with
+   *selector does not match template labels*. Primary bug — fix first. Make both identical.
 
-### 1. Selector does not match the pod template — Deployment is invalid
+2. **Service has no selector — no endpoints.** Ports defined, but no `selector`, so
+   Kubernetes creates no endpoints and traffic blackholes. Looks healthy in
+   `kubectl get svc` while routing nothing. Add a selector matching the pod labels.
 
-```yaml
-selector:
-  matchLabels:
-    app: myNginx      # line 9
-...
-template:
-  metadata:
-    labels:
-      app: myNgnx     # line 14 — missing the "i"
-```
+3. **Port chain inconsistent.** nginx serves on **80**, but `containerPort: 8000`;
+   and `targetPort` is omitted so it defaults to `port` (8080) → forwards to a dead
+   port. Set `containerPort: 80` and `targetPort: 80`.
 
-A Deployment's `selector` must match the labels on its pod template. Here they
-differ by a typo (`myNginx` vs `myNgnx`), so the API server rejects the object
-with `selector does not match template labels`.
+4. **Naming (optional).** camelCase `myNginx` is unconventional; k8s uses
+   lowercase-with-hyphens. That casing is exactly what invited the typo in #1.
+   Rename to `nginx` / `my-nginx`.
 
-This is the primary bug: nothing else in the file matters until it is fixed.
-
-**Fix:** make both values identical.
-
-### 2. Service has no selector — no endpoints
-
-```yaml
-kind: Service
-spec:
-  ports:
-    - port: 8080
-```
-
-The Service spec defines ports but no `selector`. Without one, Kubernetes
-creates no endpoints and the Service blackholes traffic. It will appear healthy
-in `kubectl get svc` while never routing anything — a silent failure.
-
-**Fix:** add a `selector` matching the pod labels.
-
-### 3. Port chain is inconsistent
-
-Three port values need to agree, and none of them do:
-
-| Setting | Value | Should be |
-|---|---|---|
-| `containerPort` | 8000 | 80 |
-| Service `port` | 8080 | (any, it is the Service's own port) |
-| Service `targetPort` | absent → defaults to 8080 | 80 |
-
-The `nginx` image serves on port **80** by default, not 8000. And because
-`targetPort` is omitted, it defaults to the value of `port` (8080), so the
-Service would forward to a port nothing is listening on.
-
-**Fix:** set `containerPort: 80` and `targetPort: 80`.
-
-### 4. Naming convention
-
-`myNginx` is a valid label value, but camelCase is unconventional for
-Kubernetes resources, where lowercase-with-hyphens is the norm. The typo in
-issue 1 is exactly the class of error that inconsistent casing invites.
-
-**Fix (optional):** rename to `nginx` or `my-nginx` throughout.
-
-## Corrected manifest
+## Corrected
 
 ```yaml
 ---
@@ -77,43 +29,35 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: nginx
-  labels:
-    app: nginx
+  labels: { app: nginx }
 spec:
   replicas: 2
   selector:
-    matchLabels:
-      app: nginx
+    matchLabels: { app: nginx }
   template:
     metadata:
-      labels:
-        app: nginx
+      labels: { app: nginx }
     spec:
       containers:
         - name: nginx
-          image: nginx
+          image: nginx:1.27-alpine   # pinned, not :latest
           ports:
             - containerPort: 80
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits:   { cpu: 200m, memory: 128Mi }
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: nginx
-  labels:
-    app: nginx
+  labels: { app: nginx }
 spec:
-  selector:
-    app: nginx
+  selector: { app: nginx }
   ports:
     - port: 8080
       targetPort: 80
 ```
 
-## Additional observations
-
-Not bugs, but worth raising in a production context:
-
-- **No image tag.** `image: nginx` resolves to `nginx:latest`, which makes
-  deployments non-reproducible. Pin a version — `nginx:1.27-alpine`.
-- **No resource requests or limits.** Without requests the scheduler cannot
-  place the pod sensibly;
+*Also (not bugs): pinned the image tag (`:latest` is non-reproducible) and added
+resource requests/limits so the scheduler can place the pod.*
