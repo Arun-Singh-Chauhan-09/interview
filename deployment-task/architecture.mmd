@@ -4,20 +4,20 @@ graph TB
     end
 
     subgraph tf["Terraform"]
-        kind["kind cluster<br/>1 control-plane + 1 worker"]
+        kindNode["kind cluster<br/>1 control-plane + 1 worker"]
     end
 
     subgraph cluster["kind cluster"]
-        subgraph default["namespace: default"]
+        subgraph nsApp["namespace: default"]
             app["demo-app<br/>FastAPI, 2 replicas<br/>/metrics + stdout logs"]
             svc["Service: demo-app"]
         end
 
-        subgraph argons["namespace: argocd"]
+        subgraph nsArgo["namespace: argocd"]
             argo["ArgoCD<br/>GitOps auto-sync + self-heal"]
         end
 
-        subgraph mon["namespace: monitoring"]
+        subgraph nsMon["namespace: monitoring"]
             prom["Prometheus<br/>scrapes /metrics"]
             am["Alertmanager<br/>routes by severity"]
             graf["Grafana<br/>datasources:<br/>Prometheus + Loki"]
@@ -29,8 +29,8 @@ graph TB
 
     gitrepo["Git repo<br/>(app manifests)"]
 
-    dev -->|terraform apply| kind
-    kind --> cluster
+    dev -->|terraform apply| kindNode
+    kindNode --> cluster
     argo -->|deploys / reconciles| app
     gitrepo -->|desired state| argo
     svc --> app
