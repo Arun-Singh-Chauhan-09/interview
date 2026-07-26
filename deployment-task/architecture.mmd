@@ -1,16 +1,14 @@
 graph TB
-    subgraph host["Developer host (WSL2 / kind)"]
-        dev["kubectl / browser<br/>port-forwards"]
-    end
+    dev["Developer host (WSL2)<br/>kubectl · browser · port-forwards"]
+    gitrepo["Git repo<br/>(app manifests)"]
 
-    subgraph tf["Terraform"]
-        kindNode["kind cluster<br/>1 control-plane + 1 worker"]
-    end
+    dev -->|terraform apply<br/>provisions| cluster
 
-    subgraph cluster["kind cluster"]
+    subgraph cluster["kind cluster (Terraform-provisioned)"]
         subgraph nsApp["namespace: default"]
-            app["demo-app<br/>FastAPI, 2 replicas<br/>/metrics + stdout logs"]
             svc["Service: demo-app"]
+            app["demo-app<br/>FastAPI, 2 replicas<br/>/metrics + stdout logs"]
+            svc --> app
         end
 
         subgraph nsArgo["namespace: argocd"]
@@ -19,29 +17,21 @@ graph TB
 
         subgraph nsMon["namespace: monitoring"]
             prom["Prometheus<br/>scrapes /metrics"]
-            am["Alertmanager<br/>routes by severity"]
-            graf["Grafana<br/>datasources:<br/>Prometheus + Loki"]
-            loki["Loki<br/>log store"]
-            pt["Promtail<br/>DaemonSet<br/>tails /var/log/pods"]
             rules["PrometheusRule<br/>DemoAppReplicaDown / AllDown"]
+            am["Alertmanager<br/>routes by severity"]
+            loki["Loki<br/>log store"]
+            pt["Promtail<br/>DaemonSet"]
+            graf["Grafana<br/>Prometheus + Loki datasources"]
         end
     end
 
-    gitrepo["Git repo<br/>(app manifests)"]
-
-    dev -->|terraform apply| kindNode
-    kindNode --> cluster
-    argo -->|deploys / reconciles| app
     gitrepo -->|desired state| argo
-    svc --> app
+    argo -->|deploys / reconciles| app
     prom -->|scrape :8080/metrics| svc
     prom --> rules
     rules -->|fires| am
-    pt -->|ships logs| loki
     pt -.->|reads stdout| app
+    pt -->|ships logs| loki
     graf -->|PromQL| prom
     graf -->|LogQL| loki
-    dev -->|:3000| graf
-    dev -->|:9090| prom
-    dev -->|:9093| am
-    dev -->|:8081| argo
+    dev -.->|:3000 :9090 :9093 :8081| graf
